@@ -53,6 +53,7 @@ const isSmartPhone = () => {
 	  }  
 	}  
 //ダブルタップ無効
+/*
 let lastTouch = 0;
 document.addEventListener('touchend', event => {
   const now = window.performance.now();
@@ -61,6 +62,7 @@ document.addEventListener('touchend', event => {
   }
   lastTouch = now;
 }, true);
+*/
 </script>
 <script>
 const ScoreArea = (()=>{
@@ -338,11 +340,25 @@ const OperationArea = (()=>{
 		evt.keyCode = key;
 		$('body').trigger(evt);		
 	}
+	const getBaseButton = text => {
+		const btn = $('<button class="btn btn-secondary"></button>');
+		btn.html(text);
+		let lastTouch = 0;
+		btn.on('touched', event => {
+		  const now = window.performance.now();
+		  if (now - lastTouch <= 500) {
+		    event.preventDefault();
+		    btn.click();
+		  }
+		  lastTouch = now;
+		}, true);
+		return btn;
+	}
 	const area = $('.operation');
 	area.addClass('row');
-	const btnLeft = $('<button class="btn btn-secondary">←</button>');
-	const btnRight = $('<button class="btn btn-secondary">→</button>');
-	const btnDown = $('<button class="btn btn-secondary">↓</button>');
+	const btnLeft = getBaseButton("←");
+	const btnRight = getBaseButton("→");
+	const btnDown = getBaseButton("↓");
 	area.append(btnLeft);
 	area.append('<span>&nbsp;</span>');
 	area.append(btnDown);
@@ -354,7 +370,7 @@ const OperationArea = (()=>{
 	btnDown.click(()=>bodyKeyDown(40));
 	
 	area.append('<span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>');
-	const btnRetry = $('<button class="btn btn-secondary">Retry</button>');
+	const btnRetry = getBaseButton("Retry");
 	btnRetry.appendTo(area);
 	btnRetry.click(()=>{
 		MainArea.start();
