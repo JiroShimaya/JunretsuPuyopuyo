@@ -128,10 +128,12 @@ const ScoreArea = (()=>{
 		}
 		const storage_manager = (()=>{
 			const easy_key = 'easy_max';
+			const normal_key = 'normal_max';
 			const hard_key = 'hard_max';
 
 			const getKey = () => {
 				if(mode == 'easy')return easy_key;
+				else if(mode == 'normal')return normal_key;
 				else if (mode == 'hard')return hard_key;
 				else return easy_key;
 			}
@@ -195,28 +197,7 @@ const ScoreArea = (()=>{
 		const mode_area = $('<div></div>');
 		mode_area.appendTo(area);
 		mode_area.append('<span>Mode: </span>');
-		const radioEasy = $('<input type="radio" name="mode" value="easy" checked>');
-		const radioHard = $('<input type="radio" name="mode" value="hard">Hard');
 
-		radioEasy.click(()=>{
-			const val = radioEasy.val();
-			storage_manager.set(val);
-			MaxArea.setMode(val);
-			MainArea.start();
-		});
-		radioHard.click(()=>{
-			const val = radioHard.val();
-			storage_manager.set(val);
-			MaxArea.setMode(val);
-			MainArea.start();
-		});
-		mode_area.append(radioEasy);
-		mode_area.append('<label>Easy&nbsp;&nbsp;&nbsp;</label>');
-		mode_area.append(radioHard);
-		mode_area.append('<label>Hard&nbsp;&nbsp;&nbsp;</label>');
-		
-		const getMode = () => $('input[name="mode"]:checked').val();
-		
 		const storage_manager = (()=>{
 			const key = 'mode';
 			const get = () => StorageManager.get(key);
@@ -226,9 +207,44 @@ const ScoreArea = (()=>{
 				get:get
 			}
 		})();
+
+		const getBaseRadio = val => {
+			const radio = $('<input type="radio" name="mode" value="'+val+'" checked>');
+			radio.click(()=>{
+				storage_manager.set(val);
+				MaxArea.setMode(val);
+				MainArea.start();
+			});
+			radio.keydown(e=>{
+				switch(e.keyCode){
+				case 37: //←
+				case 38: //↑
+				case 39: //→
+				case 40: //↓
+					e.preventDefault();
+					break;
+				}
+			});
+			return radio;
+		}
+		
+		const radioEasy = getBaseRadio('easy');
+		const radioNormal = getBaseRadio('normal');
+		const radioHard = getBaseRadio('hard');
+
+		mode_area.append(radioEasy);
+		mode_area.append('<label>Easy&nbsp;&nbsp;&nbsp;</label>');
+		mode_area.append(radioNormal);
+		mode_area.append('<label>Normal&nbsp;&nbsp;&nbsp;</label>');
+		mode_area.append(radioHard);
+		mode_area.append('<label>Hard&nbsp;&nbsp;&nbsp;</label>');
+		
+		const getMode = () => $('input[name="mode"]:checked').val();
+		
 		
 		const prev_mode = storage_manager.get();
 		if(prev_mode == radioEasy.val())radioEasy.prop('checked',true);
+		else if(prev_mode == radioNormal.val())radioNormal.prop('checked',true);
 		else if(prev_mode == radioHard.val())radioHard.prop('checked',true);
 		$(document).ready(()=>{
 			$('input[name="mode"]:checked').click();			
@@ -254,6 +270,7 @@ const MainArea = (()=>{
 	const AREA_WIDTH = BLOCK_WIDTH*COLUMN;
 	const AREA_HEIGHT = BLOCK_WIDTH*ROW;
 	let block_count = 0;
+	let bonus = 1;
 
 	const getMatrix = (init=null) => {
 		const array = [];
@@ -314,22 +331,30 @@ const MainArea = (()=>{
 		
 		//remove block
 		let isRemoved = false;
+		let removed_block_num = 0;
 		for(let i=0;i<BLOCK_MATRIX.length;i++){
 			for(let j=0;j<BLOCK_MATRIX[i].length;j++){
 				if(judge_matrix[i][j] == true){
 					BLOCK_MATRIX[i][j].remove();
+					removed_block_num += 1;
 					isRemoved = true;
 				}
 			}
 		}
+		console.log('removed',removed_block_num);
 		
 		//重力を適用
 		if(isRemoved){
+			bonus += Math.floor((removed_block_num-1)/4);
+			ScoreArea.up(removed_block_num*bonus);
+			console.log('bonus',bonus);
 			setTimeout(()=>{
+				bonus+=1;
 				applyGravity();		
 			},500);
 		}
 		else{
+			bonus = 1;
 			getBlock();
 		}
 	}
@@ -363,7 +388,10 @@ const MainArea = (()=>{
 			}
 		}
 		if(isMoved)judge();
-		else getBlock();
+		else {
+			bonus = 1;
+			getBlock();
+		}
 	}
 	const setHardBlock = (l,t) => {
 		const block = $('<div></div>');
@@ -397,9 +425,12 @@ const MainArea = (()=>{
 		}
 		set();
 	}
-
+		
+	let block_candidates = shuffle([0,1,2,3,0,1,2,3]);
 	const getBlock = () => {
-		const id = getRandomInt(members.length);
+		if(block_candidates.length < 5)block_candidates = shuffle(block_candidates.concat([0,1,2,3]));
+		//const id = getRandomInt(members.length);
+		const id = block_candidates.shift();
 		const file = pict_dir+members[id];
 		const member_id = member_ids[id];
 		const img = $('<img>');
@@ -410,7 +441,7 @@ const MainArea = (()=>{
 		
 		
 		let top = 0;
-		let left = getRandomInt(COLUMN);
+		let left = 2;
 		if(BLOCK_MATRIX[left][top] !== null){
 			ScoreArea.updateMax();
 			alert('game over');
@@ -433,9 +464,7 @@ const MainArea = (()=>{
 			return true;
 		}
 		const remove = () => {
-			img.fadeOut(500,()=>{
-				ScoreArea.up();
-			});
+			img.fadeOut(500);
 			BLOCK_MATRIX[left][top] = null;	
 		}
 		const clear = () => {
@@ -513,7 +542,10 @@ const MainArea = (()=>{
 			setHardBlock(3,3);
 			setHardBlock(3,6);
 			setHardBlock(1,6);			
+		}else if(ScoreArea.getMode() == 'normal'){
+			setHardBlock(2,4);
 		}
+		ScoreArea.reset();
 		getBlock();
 	}
 	return {
